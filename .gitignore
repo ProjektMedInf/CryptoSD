@@ -54,3 +54,6 @@ dkms.conf
 # Doxygen generated files
 doc/html
 doc/latex
+
+# External libraries
+src/libsodium_arm
