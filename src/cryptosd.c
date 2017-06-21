@@ -1,3 +1,11 @@
+/**
+ * @file cryptosd.c
+ * @author stiefel40k
+ * @date 21.06.2017
+ *
+ * @brief main module of the CryptoSd project
+ * 
+ **/
 #include <stdio.h>     
 #include <stdlib.h>
 #include <time.h>
@@ -6,11 +14,8 @@
 #include <string.h>
 #include <sys/time.h>
 
-unsigned char nonce[crypto_stream_chacha20_NONCEBYTES];
-unsigned char key[crypto_stream_chacha20_NONCEBYTES];
-char *progName;
 
-void printUsage(void);
+void printUsage(char *progName);
 void printError(char *msg, int doExit);
 
 /**
@@ -20,7 +25,8 @@ void printError(char *msg, int doExit);
  * @return 0 on success otherwise a number bigger than 0
  **/
 int main (int argc, char **argv){
-  progName = argv[0];
+  unsigned char nonce[crypto_stream_chacha20_NONCEBYTES];
+  char *progName = argv[0];
   int opt, j;
   int i=0;
 
@@ -53,25 +59,25 @@ int main (int argc, char **argv){
         strcat(opath, ".out");
         break;
       default:
-        printUsage();
+        printUsage(progName);
     }
   }
 
   // check if every needed parameter has been provided
   if ((dflag && eflag) || !(dflag || eflag)){
     printError("Either -e or -d must be set but not both\n", 0);
-    printUsage();
+    printUsage(progName);
   }
 
   if (ipath == NULL){
     printError("-i is mandatory\n", 0);
-    printUsage();
+    printUsage(progName);
   }
 
 
   if (kpath == NULL){
     printError("-k is mandatory\n", 0);
-    printUsage();
+    printUsage(progName);
   }
 
   // read in key and input file
@@ -177,8 +183,9 @@ int main (int argc, char **argv){
 
 /**
  * Pritns the usage and exits with 255.
+ * @param progName name of the program (argv[0])
  **/
-void printUsage(void){
+void printUsage(char *progName){
   fprintf(stderr, "Usage: %s -k <keyfile> -i <inputfile> -d|-e\n", progName);
   exit(255);
 }
