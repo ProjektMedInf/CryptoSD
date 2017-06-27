@@ -6,10 +6,12 @@
  * TODO: upon file creation in any of the folders (except if it is .out) call crypto
  */
 #include <stdio.h>
+#include <string.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/types.h>
-#include <linux/inotify.h>
+#include <sys/inotify.h>
 
 #define EVENT_SIZE  ( sizeof (struct inotify_event) )
 #define EVENT_BUF_LEN     ( 1024 * ( EVENT_SIZE + 16 ) )
@@ -50,10 +52,9 @@ int main( )
         if ( event->mask & IN_CREATE ) {
           if ( event->mask & IN_ISDIR ) {
             printf( "New directory %s created.\n", event->name );
-            wd1 = inotify_add_watch( fd, "/tmp/ello", IN_CREATE | IN_DELETE );
           }
           else {
-            printf( "New file %s created.\n", event->name );
+            printf( "New file %s created. Strlen: %d\n", event->name, strlen(event->name) );
           }
         }
         else if ( event->mask & IN_DELETE ) {
@@ -71,7 +72,7 @@ int main( )
   // removing the “/tmp” directory from the watch list.
   inotify_rm_watch( fd, wd );
   if (wd1){
-    inotify_rm_watch( fd, wd );
+    inotify_rm_watch( fd, wd1 );
   }
 
   // closing the INOTIFY instance
