@@ -1,16 +1,20 @@
 /*
- * daemonize.c
- * This example daemonizes a process, writes a few log messages,
- * sleeps 20 seconds and terminates afterwards.
+ * @file cryptodaemon.c
+ * @author stiefel40k
+ * @date 21.06.2017
+ *
+ * @brief This is the daemon which is started through init, and handles the encryption of new files.
  * https://stackoverflow.com/questions/17954432/creating-a-daemon-in-linux
  * TODO: proper logging
  * TODO: proper signal handler
  */
 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <syslog.h>
 #include <dirent.h>
@@ -18,73 +22,81 @@
 #include <sys/inotify.h>
 
 #define EVENT_SIZE  (sizeof (struct inotify_event))
-#define EVENT_BUF_LEN     (1024 * (EVENT_SIZE + 16))
+#define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16))
 
-static void skeleton_daemon(){
+/*
+ * Puts the program into daemon mode
+ */
+static void skeleton_daemon(void){
   pid_t pid;
 
-  /* Fork off the parent process */
+  // Fork off the parent process
   pid = fork();
 
-  /* An error occurred */
+  // An error occurred
   if (pid < 0){
     exit(EXIT_FAILURE);
   }
 
-  /* Success: Let the parent terminate */
+  // Success: Let the parent terminate
   if (pid > 0){
     exit(EXIT_SUCCESS);
   }
 
-  /* On success: The child process becomes session leader */
+  // On success: The child process becomes session leader
   if (setsid() < 0){
     exit(EXIT_FAILURE);
   }
 
-  /* Catch, ignore and handle signals */
-  //TODO: Implement a working signal handler */
+  // Catch, ignore and handle signals
+  // TODO: Implement a working signal handler
   signal(SIGCHLD, SIG_IGN);
   signal(SIGHUP, SIG_IGN);
 
-  /* Fork off for the second time*/
+  // Fork off for the second time
   pid = fork();
 
-  /* An error occurred */
+  // An error occurred
   if (pid < 0){
     exit(EXIT_FAILURE);
   }
 
-  /* Success: Let the parent terminate */
+  // Success: Let the parent terminate
   if (pid > 0){
     exit(EXIT_SUCCESS);
   }
 
-  /* Set new file permissions */
+  // Set new file permissions
   umask(0);
 
-  /* Change the working directory to the root directory */
-  /* or another appropriated directory */
+  // Change the working directory to the root directory
+  // or another appropriated directory
   chdir("/tmp");
 
-  /* Close all open file descriptors */
+  // Close all open file descriptors
   int x;
   for (x = sysconf(_SC_OPEN_MAX); x>=0; x--)
   {
     close (x);
   }
 
-  /* Open the log file */
+  // Open the log file
   openlog ("cryptodaemon", LOG_PID, LOG_DAEMON);
 }
 
-int main(){
+/*
+ * Main program of the daemon. Starts the deamonizing and starts cryptosd if a new file if found.
+ * @returns 0 if no error happend and 1 if an error occured.
+ */
+int main(void){
 
-  char *fujiPath = "/mnt/sd/DCIM/100_FUJI";
+  char *fujiPath = "/mnt/sd/DCIM/100_FUJI/";
   int fd, wd, i, length;
   char buffer[EVENT_BUF_LEN];
 
   skeleton_daemon();
-  //TODO: do we really need this block?
+  // TODO: do we really need this block?
+  // DCIM/100CANON for canon
   syslog (LOG_NOTICE, "Check if DCIM/100_FUJI exists.");
   DIR *fuji = opendir(fujiPath);
   if (fuji){
@@ -125,20 +137,83 @@ int main(){
     while (i < length) {
       struct inotify_event *event = (struct inotify_event *) &buffer[i];
       if (event->len) {
-        //TODO: fork the cryptosd executable and encrypt the file
-        //TODO: after encryption overwrite the file
         syslog(LOG_NOTICE, "New file %s created.", event->name);
+        int pathLength = strlen(event->name) + strlen(fujiPath) + 1;
+        char *newFilePath = (char *)malloc(pathLength);
+
+        if(newFilePath == NULL){
+          syslog(LOG_ERR, "Error during initializing newFilePath buffer. Continue without encrypting");
+        }
+
+        else {
+          memset(newFilePath, '\0', pathLength);
+          strncpy(newFilePath, fujiPath, strlen(fujiPath));
+          strncat(newFilePath, event->name, strlen(event->name));
+
+          if (strstr(".out", event->name) == NULL){
+            // new picture found
+            pid_t childPid = fork();
+
+            if (childPid == -1){
+              // TODO: store the event name and try to encrypt later.
+              syslog(LOG_ERR, "Error %d occured during start of cryptosd. Continuing without encrypting %s", errno, event->name);
+            }
+            else if(childPid == 0){
+              // Child process
+              // TODO: change path of key
+              syslog(LOG_NOTICE, "Starting cryptosd for %s.", event->name);
+              char *argList[] = {"cryptosd",
+                "-e",
+                "-k",
+                "/tmp/key",
+                "-i",
+                newFilePath,
+                NULL
+              };
+              execvp("cryptosd", argList);
+              // only occures if an error happened
+              syslog(LOG_ERR, "Error during execvp of cryptosd for %s.", newFilePath);
+              abort();
+              // TODO: check if encryption done or not
+            }
+          }
+          else {
+            // outfile found, delete the original one
+            char *origiPath = strndup(event->name, strlen(event->name) - 4);
+
+            if(origiPath == NULL){
+              syslog(LOG_ERR, "Error during initializing origiPath buffer. Continue without deleting %s (without .out)", event->name);
+            }
+
+            else {
+              pid_t chidPid = fork();
+
+              if (childPid == -1){
+                syslog(LOG_ERR, "Error (%d) during start of shred. Continue without deleting %s", errno, origiPath);
+              }
+              else if(childPid == 0){
+                // Child process
+                syslog(LOG_NOTICE, "Starting deletion of %s", origiPath);
+                char *argList[] = {"rm",
+                  origiPath,
+                  NULL
+                };
+                execvp("rm", argList);
+                syslog(LOG_ERR, "Error during execvp of rm for %s", origiPath);
+                abort();
+              }
+            }
+          }
+        }
+        i += EVENT_SIZE + event->len;
       }
-      i += EVENT_SIZE + event->len;
     }
   }
-
-  // removing the “/tmp” directory from the watch list.
   inotify_rm_watch(fd, wd);
 
   // closing the INOTIFY instance
   close(fd);
-  syslog (LOG_NOTICE, "First daemon terminated.");
+  syslog (LOG_NOTICE, "Cryptodaemon terminated.");
   closelog();
 
   return EXIT_SUCCESS;
