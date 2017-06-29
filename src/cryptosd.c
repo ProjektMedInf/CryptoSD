@@ -5,7 +5,6 @@
  *
  * @brief main module of the CryptoSd project
  * TODO: Generate random key for every file, and encrypt it with a public key --> dump the encrypted key to the end of the file
- * TODO: add mutex to enable only one process encrypting files, otherwise the card might get overwhelmed
  * 
  **/
 #include <stdio.h>     
