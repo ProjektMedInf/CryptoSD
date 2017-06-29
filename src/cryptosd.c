@@ -100,7 +100,7 @@ int main (int argc, char **argv){
   FILE *ifd = fopen(ipath, "r");
 
   if (ifd == NULL){
-    printError("Error during opening keyfile\n", 1);
+    printError("Error during opening inputfile\n", 1);
   }
 
   fseek(ifd, 0, SEEK_END);
