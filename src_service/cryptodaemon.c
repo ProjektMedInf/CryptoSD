@@ -181,12 +181,13 @@ int main(void){
             // outfile found, delete the original one
             char *origiPath = strndup(event->name, strlen(event->name) - 4);
 
+            // TODO: add to global list and try delete later
             if(origiPath == NULL){
               syslog(LOG_ERR, "Error during initializing origiPath buffer. Continue without deleting %s (without .out)", event->name);
             }
 
             else {
-              pid_t chidPid = fork();
+              pid_t childPid = fork();
 
               if (childPid == -1){
                 syslog(LOG_ERR, "Error (%d) during start of shred. Continue without deleting %s", errno, origiPath);
