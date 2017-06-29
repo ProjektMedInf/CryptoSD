@@ -20,6 +20,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/inotify.h>
+#include <sys/wait.h>
 
 #define EVENT_SIZE  (sizeof (struct inotify_event))
 #define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16))
@@ -150,7 +151,7 @@ int main(void){
           strncpy(newFilePath, fujiPath, strlen(fujiPath));
           strncat(newFilePath, event->name, strlen(event->name));
 
-          if (strstr(".out", event->name) == NULL){
+          if (strstr(event->name, ".out") == NULL){
             // new picture found
             pid_t childPid = fork();
 
@@ -170,16 +171,29 @@ int main(void){
                 newFilePath,
                 NULL
               };
-              execvp("cryptosd", argList);
+
+              execvp("/tmp/cryptosd", argList);
+
               // only occures if an error happened
-              syslog(LOG_ERR, "Error during execvp of cryptosd for %s.", newFilePath);
+              syslog(LOG_ERR, "Error (%d) during execvp of cryptosd for %s.", newFilePath, errno);
               abort();
               // TODO: check if encryption done or not
+            }
+            else {
+              syslog(LOG_NOTICE, "Child pid: %d", childPid);
+              int returnStatus;
+              waitpid(childPid, &returnStatus, 0);
+              if (returnStatus != 0){
+                syslog(LOG_ERR, "Child returned with errorcode %d", returnStatus);
+              }
+              else {
+                syslog(LOG_NOTICE, "Encryption done for %s", newFilePath);
+              }
             }
           }
           else {
             // outfile found, delete the original one
-            char *origiPath = strndup(event->name, strlen(event->name) - 4);
+            char *origiPath = strndup(newFilePath, strlen(newFilePath) - 4);
 
             // TODO: add to global list and try delete later
             if(origiPath == NULL){
@@ -202,6 +216,17 @@ int main(void){
                 execvp("rm", argList);
                 syslog(LOG_ERR, "Error during execvp of rm for %s", origiPath);
                 abort();
+              }
+              else {
+                syslog(LOG_NOTICE, "Child pid: %d", childPid);
+                int returnStatus;
+                waitpid(childPid, &returnStatus, 0);
+                if (returnStatus != 0){
+                  syslog(LOG_ERR, "Child returned with errorcode %d", returnStatus);
+                }
+                else {
+                  syslog(LOG_NOTICE, "Deletion done for %s", origiPath);
+                }
               }
             }
           }
