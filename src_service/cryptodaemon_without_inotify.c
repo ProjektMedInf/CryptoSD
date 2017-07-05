@@ -201,6 +201,7 @@ int main(void){
               }
             }
           }
+          free(newFilePath);
         }
       }
       if (closedir(fuji) == -1){
