@@ -139,12 +139,20 @@ int main (int argc, char **argv){
       printError("An error occured during writing the encrypted file\n", 2);
     }
 
+    if(fsync(fileno(ofd)) == -1){
+      printError("An error occured during flushing the encrypted file\n", 0);
+    }
+
     fclose(ofd);
 
     ofd = fopen(opath, "a");
 
     if (ofd == NULL){
       printError("Error during opening keyfile\n", 1);
+    }
+
+    if(fsync(fileno(ofd)) == -1){
+      printError("An error occured during flushing the encrypted file with the nonce\n", 0);
     }
 
     // write the used nonce to the end of the outputfile
