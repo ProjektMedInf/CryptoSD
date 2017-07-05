@@ -5,7 +5,7 @@ cryptosd: cryptosd.c
 	gcc -o cryptosd.o cryptosd.c $(CFLAGS)
 
 crosscompile: cryptosd.c
-	@cc -s -static -O3 -o cryptosd.o $(CROSSFLAGS) cryptosd.c ./libsodium_arm/lib/libsodium.a
+	@cc -s -static -O3 -o cryptosd_arm.o $(CROSSFLAGS) cryptosd.c ./libsodium_arm/lib/libsodium.a
 
 .PHONY: clean
 clean:
