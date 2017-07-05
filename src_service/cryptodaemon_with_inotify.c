@@ -177,7 +177,6 @@ int main(void){
               // only occures if an error happened
               syslog(LOG_ERR, "Error (%d) during execvp of cryptosd for %s.", newFilePath, errno);
               abort();
-              // TODO: check if encryption done or not
             }
             else {
               syslog(LOG_NOTICE, "Child pid: %d", childPid);
@@ -185,6 +184,7 @@ int main(void){
               waitpid(childPid, &returnStatus, 0);
               if (returnStatus != 0){
                 syslog(LOG_ERR, "Child returned with errorcode %d", returnStatus);
+                // TODO: check if encryption done or not
               }
               else {
                 syslog(LOG_NOTICE, "Encryption done for %s", newFilePath);
