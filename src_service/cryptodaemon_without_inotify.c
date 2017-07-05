@@ -160,10 +160,8 @@ int main(void){
               }
               else {
                 syslog(LOG_NOTICE, "Child (cryptosd) pid: %d", childPid);
-                int returnStatus = 0;
-                if (waitpid(childPid, &returnStatus, 0) == -1){
-                  syslog(LOG_ERR, "Waiting for cryptosd failed");
-                }
+                int returnStatus = 9;
+                waitpid(childPid, &returnStatus, 0);
                 if (returnStatus != 0){
                   syslog(LOG_ERR, "Child (cryptosd) returned with errorcode %d", returnStatus);
                   // TODO: check if encryption done or not
@@ -190,7 +188,7 @@ int main(void){
                   }
                   else {
                     syslog(LOG_NOTICE, "Child (rm) pid: %d", childPid);
-                    int returnStatus;
+                    returnStatus = 9;
                     waitpid(childPid, &returnStatus, 0);
                     if (returnStatus != 0){
                       syslog(LOG_ERR, "Child (rm) returned with errorcode %d", returnStatus);
