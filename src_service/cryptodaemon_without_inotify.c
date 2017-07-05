@@ -20,6 +20,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <sys/mount.h>
 
 /*
  * Puts the program into daemon mode
@@ -111,7 +112,7 @@ int main(void){
     exit(1);
   }
 
- while(1){
+  while(1){
 
     fuji = opendir(fujiPath);
     // read the filelisting
@@ -211,6 +212,17 @@ int main(void){
     }
     syslog(LOG_NOTICE, "Sleep %d seconds", sleepTime);
     sleep(sleepTime);
+    //sync
+    //unmount
+    if (umount("/mnt/sd/") == -1)
+    {
+      syslog(LOG_ERR, "Unmount failed with errorcode %d", errno);
+    }
+    //remount
+    if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "rw,fmask=0022,dmask=0022,codepage=cp437,iocharset=utf8,shortname=winnt,errors=remount-ro") == -1)
+    {
+      syslog(LOG_ERR, "Remount failed with errorcode %d", errno);
+    }  
   }
 
   syslog (LOG_NOTICE, "Cryptodaemon terminated.");
