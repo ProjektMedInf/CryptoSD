@@ -221,7 +221,7 @@ int main(void){
     }
     syslog(LOG_NOTICE, "end umount");
     //remount
-    if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "rw,fmask=0022,dmask=0022,codepage=cp437,shortname=winnt,errors=remount-ro") == -1)
+    if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "") == -1)
     {
       syslog(LOG_ERR, "Remount failed with errorcode %d", errno);
     }  
