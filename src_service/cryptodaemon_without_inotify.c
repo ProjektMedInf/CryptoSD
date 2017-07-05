@@ -88,7 +88,7 @@ static void skeleton_daemon(void){
  */
 int main(void){
 
-  char *fujiPath = "/mnt/sd/DCIM/100_FUJI/";
+  char *fujiPath = "/mnt/sd/DCIM/101_FUJI/";
   struct dirent *fujiContent;
   int sleepTime = 5;
   DIR *fuji;
@@ -214,15 +214,18 @@ int main(void){
     sleep(sleepTime);
     //sync
     //unmount
+    syslog(LOG_NOTICE, "begin umount");
     if (umount("/mnt/sd/") == -1)
     {
       syslog(LOG_ERR, "Unmount failed with errorcode %d", errno);
     }
+    syslog(LOG_NOTICE, "end umount");
     //remount
-    if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "rw,fmask=0022,dmask=0022,codepage=cp437,iocharset=utf8,shortname=winnt,errors=remount-ro") == -1)
+    if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "rw,fmask=0022,dmask=0022,codepage=cp437,shortname=winnt,errors=remount-ro") == -1)
     {
       syslog(LOG_ERR, "Remount failed with errorcode %d", errno);
     }  
+    syslog(LOG_NOTICE, "end remount");
   }
 
   syslog (LOG_NOTICE, "Cryptodaemon terminated.");
