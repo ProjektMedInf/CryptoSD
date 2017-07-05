@@ -1,11 +1,11 @@
 CFLAGS=-lsodium
-CROSSFLAGS=-I./libsodium/include 
+CROSSFLAGS=-I./libsodium_arm/include 
 
 cryptosd: cryptosd.c
 	gcc -o cryptosd.o $(CFLAGS) cryptosd.c
 
 crosscompile: cryptosd.c
-	@cc -s -static -O3 -o cryptosd.o $(CROSSFLAGS) cryptosd.c ./libsodium/lib/libsodium.a
+	@cc -s -static -O3 -o cryptosd.o $(CROSSFLAGS) cryptosd.c ./libsodium_arm/lib/libsodium.a
 
 .PHONY: clean
 clean:
