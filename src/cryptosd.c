@@ -45,6 +45,8 @@ int checkKeyFile(FILE *keyFile, char *keyType, int validLength);
  * @return 0 on success otherwise a number bigger than 0
  **/
 int main (int argc, char **argv){
+  unsigned char iHaveNoFuckingClueWhyINeedThisHereButThisMustBeTheFirstVariable[crypto_box_PUBLICKEYBYTES];
+
   unsigned char nonce[crypto_stream_chacha20_NONCEBYTES] = {};
   unsigned char key[crypto_stream_chacha20_KEYBYTES] = {};
   unsigned char encryptedKey[sizeof(key) + crypto_box_MACBYTES];
@@ -227,7 +229,6 @@ int main (int argc, char **argv){
       encryptedKey[j++] = ifdBuffer[i];
     }
 
-    printf("Result: %d\n", crypto_box_open_easy(key, encryptedKey, sizeof(encryptedKey), nonce, publickey, secretkey));
     if(crypto_box_open_easy(key, encryptedKey, sizeof(encryptedKey), nonce, publickey, secretkey) != 0){
       printError("Error during decrypting the encryption key\n", 2);
     }
