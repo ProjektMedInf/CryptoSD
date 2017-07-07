@@ -166,8 +166,8 @@ int main (int argc, char **argv){
   if(eflag){
     // do encryption
     // fill nonce and key with random data
-    //randombytes_buf(nonce, sizeof(nonce));
-    //randombytes_buf(key, sizeof(key));
+    randombytes_buf(nonce, sizeof(nonce));
+    randombytes_buf(key, sizeof(key));
 
     if(crypto_box_easy(encryptedKey, key, sizeof(key), nonce, publickey, secretkey) != 0){
       printError("Error during encrypting the encryption key\n", 2);
@@ -227,19 +227,20 @@ int main (int argc, char **argv){
       encryptedKey[j++] = ifdBuffer[i];
     }
 
+    printf("Result: %d\n", crypto_box_open_easy(key, encryptedKey, sizeof(encryptedKey), nonce, publickey, secretkey));
     if(crypto_box_open_easy(key, encryptedKey, sizeof(encryptedKey), nonce, publickey, secretkey) != 0){
       printError("Error during decrypting the encryption key\n", 2);
     }
 
-    crypto_stream_chacha20_xor(ifdBuffer, ifdBuffer, ifSize, nonce, key);
+    crypto_stream_chacha20_xor(ifdBuffer, ifdBuffer, ifSize - sizeof(encryptedKey) - sizeof(nonce), nonce, key);
     FILE *ofd = fopen(opath, "w");
 
     if (ofd == NULL){
-      printError("Error during opening keyfile\n", 2);
+      printError("Error during opening outputfile\n", 2);
     }
 
     // write out the decrypted stream to the outputfile
-    if(fwrite(ifdBuffer, sizeof(char), ifSize - sizeof(nonce), ofd) != ifSize - sizeof(nonce)){
+    if(fwrite(ifdBuffer, sizeof(char), ifSize - sizeof(encryptedKey) - sizeof(nonce), ofd) != ifSize - sizeof(encryptedKey) - sizeof(nonce)){
       printError("An error occured during writing the decrypted file\n", 2);
     }
 
