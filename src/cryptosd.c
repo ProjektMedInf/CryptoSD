@@ -45,9 +45,8 @@ int checkKeyFile(FILE *keyFile, char *keyType, int validLength);
  * @return 0 on success otherwise a number bigger than 0
  **/
 int main (int argc, char **argv){
-  unsigned char iHaveNoFuckingClueWhyINeedThisHereButThisMustBeTheFirstVariable[crypto_box_PUBLICKEYBYTES];
 
-  unsigned char nonce[crypto_stream_chacha20_NONCEBYTES] = {};
+  unsigned char nonce[crypto_box_NONCEBYTES] = {};
   unsigned char key[crypto_stream_chacha20_KEYBYTES] = {};
   unsigned char encryptedKey[sizeof(key) + crypto_box_MACBYTES];
   char *progName = argv[0];
