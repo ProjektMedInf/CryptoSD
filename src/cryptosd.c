@@ -14,7 +14,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/time.h>
-
+#include <syslog.h>
 
 void printUsage(char *progName);
 void printError(char *msg, int doExit);
@@ -66,40 +66,46 @@ int main (int argc, char **argv){
 
   // check if every needed parameter has been provided
   if ((dflag && eflag) || !(dflag || eflag)){
-    printError("Either -e or -d must be set but not both\n", 0);
+    syslog(LOG_ERR, "Either -e or -d must be set but not both \n");
     printUsage(progName);
+    exit(255);
   }
 
   if (ipath == NULL){
-    printError("-i is mandatory\n", 0);
+    syslog(LOG_ERR, "-i is mandatory\n");
     printUsage(progName);
+    exit(255);
   }
 
 
   if (kpath == NULL){
-    printError("-k is mandatory\n", 0);
+    syslog(LOG_ERR, "-k is mandatory\n");
     printUsage(progName);
+    exit(255);
   }
 
   // read in key and input file
   FILE *kfd = fopen(kpath, "r");
 
   if (kfd == NULL){
-    printError("Error during opening keyfile\n", 1);
+    syslog(LOG_ERR, "Error during opening keyfile\n");
+    exit(1);
   }
 
   // check if keyfile is valid regarding its size
   fseek(kfd, 0, SEEK_END);
   int kfSize = ftell(kfd);
   if(kfSize != crypto_secretbox_KEYBYTES){
-    printError("This seems to be an invalid keyfile.\n", 1);
+    syslog(LOG_ERR, "This seems to be an invalid keyfile.\n");
+    exit(1);
   }
   rewind(kfd);
 
   FILE *ifd = fopen(ipath, "r");
 
   if (ifd == NULL){
-    printError("Error during opening inputfile\n", 1);
+    syslog(LOG_ERR, "Error during opening inputfile.\n");
+    exit(1);
   }
 
   fseek(ifd, 0, SEEK_END);
@@ -108,11 +114,13 @@ int main (int argc, char **argv){
 
   char *key = (char *)malloc(kfSize + 1);
   if(key == NULL){
-    printError("Error during initializing key buffer\n", 1);
+    syslog(LOG_ERR, "Error during initializing key buffer.\n");
+    exit(1);
   }
   char *ifdBuffer = (char *)malloc(ifSize + 1);
   if(key == NULL){
-    printError("Error during initializing input buffer\n", 1);
+    syslog(LOG_ERR, "Error during initializing input buffer.\n");
+    exit(1);
   }
 
   fread(key, kfSize, 1, kfd);
@@ -131,16 +139,19 @@ int main (int argc, char **argv){
     FILE *ofd = fopen(opath, "w");
 
     if (ofd == NULL){
-      printError("Error during opening keyfile\n", 2);
+      syslog(LOG_ERR, "Error during opening outputfile.\n");
+      exit(2);
     }
 
     // write the encrypted stream to the outputfile
     if(fwrite(ifdBuffer, sizeof(char), ifSize, ofd) != ifSize){
-      printError("An error occured during writing the encrypted file\n", 2);
+      syslog(LOG_ERR, "An error occured during writing the encrypted file.\n");
+      exit(2);
     }
 
     if(fsync(fileno(ofd)) == -1){
-      printError("An error occured during flushing the encrypted file\n", 0);
+      syslog(LOG_ERR, "An error occured during flushing the encrypted file.\n");
+      exit(2);
     }
 
     fclose(ofd);
@@ -148,16 +159,19 @@ int main (int argc, char **argv){
     ofd = fopen(opath, "a");
 
     if (ofd == NULL){
-      printError("Error during opening keyfile\n", 1);
+      syslog(LOG_ERR, "Error during opening outputfile.\n");
+      exit(2);
     }
 
     if(fsync(fileno(ofd)) == -1){
-      printError("An error occured during flushing the encrypted file with the nonce\n", 0);
+      syslog(LOG_ERR, "An error occured during flushing the encrypted file with the nonce.\n");
+      exit(0);
     }
 
     // write the used nonce to the end of the outputfile
     if(fwrite(nonce, sizeof(char), sizeof(nonce), ofd) != sizeof(nonce)){
-      printError("An error occured during writing the encrypted file\n", 2);
+      syslog(LOG_ERR, "An error occured during writing the encrypted file.\n");
+      exit(2);
     }
 
     fclose(ofd);
@@ -173,12 +187,14 @@ int main (int argc, char **argv){
     FILE *ofd = fopen(opath, "w");
 
     if (ofd == NULL){
-      printError("Error during opening keyfile\n", 2);
+      syslog(LOG_ERR, "Error during opening outputfile.\n");
+      exit(2);
     }
 
     // write out the decrypted stream to the outputfile
     if(fwrite(ifdBuffer, sizeof(char), ifSize - sizeof(nonce), ofd) != ifSize - sizeof(nonce)){
-      printError("An error occured during writing the decrypted file\n", 2);
+      syslog(LOG_ERR, "An error occured during writing the decrypted file.\n");
+      exit(2);
     }
 
     fclose(ofd);
@@ -191,23 +207,9 @@ int main (int argc, char **argv){
 } 
 
 /**
- * Pritns the usage and exits with 255.
+ * Pritns the usage.
  * @param progName name of the program (argv[0])
  **/
 void printUsage(char *progName){
   fprintf(stderr, "Usage: %s -k <keyfile> -i <inputfile> -d|-e\n", progName);
-  exit(255);
-}
-
-/**
- * Prints an error message to sdterr and exists with the given exitcode
- * if it is not 0.
- * @param msg the error message
- * @param doExit the exitcode to be used
- **/
-void printError(char *msg, int doExit){
-  fprintf(stderr, msg);
-  if(doExit){
-    exit(doExit);
-  }
 }
