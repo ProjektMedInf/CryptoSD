@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/time.h>
+#include <syslog.h>
 
 
 void printUsage(char *progName);
@@ -38,7 +39,7 @@ int main (int argc, char **argv){
   char *opath = NULL; 
 
   // parse parameters
-  while((opt = getopt(argc, argv, "dek:i:")) != -1){
+  while((opt = getopt(argc, argv, "dek:i:o:")) != -1){
     switch(opt) {
       case 'd':
         dflag = 1;
@@ -51,13 +52,10 @@ int main (int argc, char **argv){
         break;
       case 'i':
         ipath = optarg;
-        opath = malloc(sizeof(char) * strlen(ipath) + 5);
-        memset(opath, '\0', strlen(ipath) + 1);
-        while(*ipath != '\0'){
-          opath[i++] = *ipath++;
-        }
-        ipath = optarg;
-        strcat(opath, ".out");
+        break;
+      case 'o':
+        opath = optarg;
+        syslog(LOG_NOTICE, "outputfile %s.", opath);
         break;
       default:
         printUsage(progName);
@@ -75,9 +73,13 @@ int main (int argc, char **argv){
     printUsage(progName);
   }
 
-
   if (kpath == NULL){
     printError("-k is mandatory\n", 0);
+    printUsage(progName);
+  }
+
+  if (opath == NULL){
+    printError("-o is mandatory\n", 0);
     printUsage(progName);
   }
 
@@ -131,7 +133,7 @@ int main (int argc, char **argv){
     FILE *ofd = fopen(opath, "w");
 
     if (ofd == NULL){
-      printError("Error during opening keyfile\n", 2);
+      printError("Error during opening outputfile\n", 2);
     }
 
     // write the encrypted stream to the outputfile
@@ -183,7 +185,6 @@ int main (int argc, char **argv){
 
     fclose(ofd);
   }
-  free(opath);
   free(key);
   free(ifdBuffer);
 
@@ -195,7 +196,7 @@ int main (int argc, char **argv){
  * @param progName name of the program (argv[0])
  **/
 void printUsage(char *progName){
-  fprintf(stderr, "Usage: %s -k <keyfile> -i <inputfile> -d|-e\n", progName);
+  fprintf(stderr, "Usage: %s -k <keyfile> -i <inputfile> -o <outputfile> -d|-e\n", progName);
   exit(255);
 }
 

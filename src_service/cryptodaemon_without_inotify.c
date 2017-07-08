@@ -88,39 +88,39 @@ static void skeleton_daemon(void){
  */
 int main(void){
 
-  char *fujiPath = "/mnt/sd/DCIM/101_FUJI/";
-  struct dirent *fujiContent;
+  char *imagePath = "/mnt/sd/DCIM/100PHOTO/";
+  struct dirent *imageDirContent;
   int sleepTime = 5;
-  DIR *fuji;
+  DIR *imageDir;
 
   skeleton_daemon();
   // TODO: do we really need this block?
   // DCIM/100CANON for canon
-  syslog (LOG_NOTICE, "Check if DCIM/100_FUJI exists.");
-  fuji = opendir(fujiPath);
-  if (fuji){
-    syslog(LOG_NOTICE, "DCIM/100_FUJI found. Continue execting.");
-    closedir(fuji);
+  syslog (LOG_NOTICE, "Check if %s exists.", imagePath);
+  imageDir = opendir(imagePath);
+  if (imageDir){
+    syslog(LOG_NOTICE, "%s found. Continue execting.", imagePath);
+    closedir(imageDir);
   }
   else if (ENOENT == errno){
-    syslog(LOG_NOTICE, "DCIM/100_FUJI not found. Create it and continue execting.");
-    mkdir(fujiPath, 0777);
+    syslog(LOG_NOTICE, "%s not found. Create it and continue execting.", imagePath);
+    mkdir(imagePath, 0777);
     // TODO: wait until found
   }
   else {
-    syslog(LOG_ERR, "Error (%d) occured during checking DCIM/100_FUJI. Exiting", errno);
+    syslog(LOG_ERR, "Error (%d) occured during checking %s. Exiting", errno, imagePath);
     exit(1);
   }
 
   while(1){
 
-    fuji = opendir(fujiPath);
+    imageDir = opendir(imagePath);
     // read the filelisting
-    if (fuji){
-      while ((fujiContent = readdir(fuji)) != NULL) {
-        if (fujiContent->d_type == DT_REG) {
-          syslog(LOG_NOTICE, "Beginning to handle %s", fujiContent->d_name);
-          int pathLength = strlen(fujiContent->d_name) + strlen(fujiPath) + 1;
+    if (imageDir){
+      while ((imageDirContent = readdir(imageDir)) != NULL) {
+        if (imageDirContent->d_type == DT_REG) {
+          syslog(LOG_NOTICE, "Beginning to handle %s", imageDirContent->d_name);
+          int pathLength = strlen(imageDirContent->d_name) + strlen(imagePath) + 1;
           char *newFilePath = (char *)malloc(pathLength);
 
           if(newFilePath == NULL){
@@ -129,27 +129,36 @@ int main(void){
 
           else {
             memset(newFilePath, '\0', pathLength);
-            strncpy(newFilePath, fujiPath, strlen(fujiPath));
-            strncat(newFilePath, fujiContent->d_name, strlen(fujiContent->d_name));
+            strncpy(newFilePath, imagePath, strlen(imagePath));
+            strncat(newFilePath, imageDirContent->d_name, strlen(imageDirContent->d_name));
 
-            if (strstr(fujiContent->d_name, ".out") == NULL){
+            if (strstr(imageDirContent->d_name, ".out") == NULL){
               // new picture found
               pid_t childPid = fork();
 
               if (childPid == -1){
                 // TODO: store the event name and try to encrypt later.
-                syslog(LOG_ERR, "Error %d occured during start of cryptosd. Continuing without encrypting %s", errno, fujiContent->d_name);
+                syslog(LOG_ERR, "Error %d occured during start of cryptosd. Continuing without encrypting %s", errno, imageDirContent->d_name);
               }
               else if(childPid == 0){
                 // Child process
                 // TODO: change path of key
-                syslog(LOG_NOTICE, "Starting cryptosd for %s.", fujiContent->d_name);
+                syslog(LOG_NOTICE, "Starting cryptosd for %s.", imageDirContent->d_name);
+                char outputFileName[200];
+                //strcpy(outputFileName, imagePath);
+                strcpy(outputFileName, "/mnt/sd2/");
+                strcat(outputFileName, "done/");
+                strcat(outputFileName, imageDirContent->d_name);
+                strcat(outputFileName, ".enc");
+                syslog(LOG_NOTICE, "outputFileName %s.", outputFileName);
                 char *argList[] = {"cryptosd",
                   "-e",
                   "-k",
-                  "/tmp/key",
+                  "/tmp/key", 
                   "-i",
                   newFilePath,
+                  "-o",
+                  outputFileName,
                   NULL
                 };
 
@@ -174,17 +183,17 @@ int main(void){
                   pid_t childPid = fork();
 
                   if (childPid == -1){
-                    syslog(LOG_ERR, "Error (%d) during start of rm. Continue without deleting %s", errno, fujiContent->d_name);
+                    syslog(LOG_ERR, "Error (%d) during start of rm. Continue without deleting %s", errno, imageDirContent->d_name);
                   }
                   else if(childPid == 0){
                     // Child process
-                    syslog(LOG_NOTICE, "Starting deletion of %s", fujiContent->d_name);
+                    syslog(LOG_NOTICE, "Starting deletion of %s", imageDirContent->d_name);
                     char *argList[] = {"rm",
                       newFilePath,
                       NULL
                     };
                     execvp("rm", argList);
-                    syslog(LOG_ERR, "Error during execvp of rm for %s", fujiContent->d_name);
+                    syslog(LOG_ERR, "Error during execvp of rm for %s", imageDirContent->d_name);
                     abort();
                   }
                   else {
@@ -195,7 +204,7 @@ int main(void){
                       syslog(LOG_ERR, "Child (rm) returned with errorcode %d", returnStatus);
                     }
                     else {
-                      syslog(LOG_NOTICE, "Deletion done for %s", fujiContent->d_name);
+                      syslog(LOG_NOTICE, "Deletion done for %s", imageDirContent->d_name);
                     }
                   }
                 }
@@ -205,8 +214,8 @@ int main(void){
           free(newFilePath);
         }
       }
-      if (closedir(fuji) == -1){
-        syslog(LOG_ERR, "Error during closing the directory %s", fujiPath);
+      if (closedir(imageDir) == -1){
+        syslog(LOG_ERR, "Error during closing the directory %s", imagePath);
         // TODO: try until you can close it or exit
       }
     }
