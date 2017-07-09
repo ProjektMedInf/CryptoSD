@@ -13,7 +13,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <signal.h>
 #include <string.h>
 #include <syslog.h>
 #include <sys/stat.h>
@@ -144,91 +143,101 @@ int main(void){
                 // TODO: change path of key
                 syslog(LOG_NOTICE, "Starting cryptosd for %s.", imageDirContent->d_name);
                 char *argList[] = {"cryptosd",
-                  "-e",
-                  "-k",
-                  "/tmp/key",
-                  "-i",
+                "-e",
+                "-k",
+                "/tmp/key",
+                "-i",
+                newFilePath,
+                NULL
+              };
+
+              execvp("/tmp/cryptosd", argList);
+
+              // only occures if an error happened
+              syslog(LOG_ERR, "Error (%d) during execvp of cryptosd for %s.", errno, newFilePath);
+              abort();
+            }
+            else {
+              syslog(LOG_NOTICE, "Child (cryptosd) pid: %d", childPid);
+              int returnStatus;
+              waitpid(childPid, &returnStatus, 0);
+              syslog(LOG_NOTICE, "Return Status %d", WEXITSTATUS(returnStatus));
+              if (WIFEXITED(returnStatus)){
+                syslog(LOG_NOTICE, "Encryption done for %s. Beginning with the deletion.", newFilePath);
+                // outfile found, delete the original one
+
+                pid_t childPid = fork();
+
+                if (childPid == -1){
+                  syslog(LOG_ERR, "Error (%d) during start of rm. Continue without deleting %s", errno, imageDirContent->d_name);
+                }
+                else if(childPid == 0){
+                  // Child process
+                  syslog(LOG_NOTICE, "Starting deletion of %s", imageDirContent->d_name);
+                  char *argList[] = {"rm",
                   newFilePath,
                   NULL
                 };
-
-                execvp("/tmp/cryptosd", argList);
-
-                // only occures if an error happened
-                syslog(LOG_ERR, "Error (%d) during execvp of cryptosd for %s.", newFilePath, errno);
+                execvp("rm", argList);
+                syslog(LOG_ERR, "Error during execvp of rm for %s", imageDirContent->d_name);
                 abort();
               }
               else {
-                syslog(LOG_NOTICE, "Child (cryptosd) pid: %d", childPid);
-                int returnStatus = 9;
+                syslog(LOG_NOTICE, "Child (rm) pid: %d", childPid);
+                returnStatus = 9;
                 waitpid(childPid, &returnStatus, 0);
                 if (returnStatus != 0){
-                  syslog(LOG_ERR, "Child (cryptosd) returned with errorcode %d", returnStatus);
-                  // TODO: check if encryption done or not
+                  syslog(LOG_ERR, "Child (rm) returned with errorcode %d", returnStatus);
                 }
                 else {
-                  syslog(LOG_NOTICE, "Encryption done for %s. Beginning with the deletion.", newFilePath);
-                  // outfile found, delete the original one
-
-                  pid_t childPid = fork();
-
-                  if (childPid == -1){
-                    syslog(LOG_ERR, "Error (%d) during start of rm. Continue without deleting %s", errno, imageDirContent->d_name);
-                  }
-                  else if(childPid == 0){
-                    // Child process
-                    syslog(LOG_NOTICE, "Starting deletion of %s", imageDirContent->d_name);
-                    char *argList[] = {"rm",
-                      newFilePath,
-                      NULL
-                    };
-                    execvp("rm", argList);
-                    syslog(LOG_ERR, "Error during execvp of rm for %s", imageDirContent->d_name);
-                    abort();
-                  }
-                  else {
-                    syslog(LOG_NOTICE, "Child (rm) pid: %d", childPid);
-                    returnStatus = 9;
-                    waitpid(childPid, &returnStatus, 0);
-                    if (returnStatus != 0){
-                      syslog(LOG_ERR, "Child (rm) returned with errorcode %d", returnStatus);
-                    }
-                    else {
-                      syslog(LOG_NOTICE, "Deletion done for %s", imageDirContent->d_name);
-                    }
-                  }
+                  syslog(LOG_NOTICE, "Deletion done for %s", imageDirContent->d_name);
                 }
               }
             }
+            else if ( WIFSIGNALED(returnStatus) ) {
+              int signum = WTERMSIG(returnStatus);
+              syslog(LOG_ERR, "Exited due to receiving signal %d\n", WEXITSTATUS(returnStatus));
+            }
+            else if ( WIFSTOPPED(returnStatus) ) {
+              int signum = WSTOPSIG(returnStatus);
+              syslog(LOG_ERR, "Stopped due to receiving signal %d\n", WEXITSTATUS(returnStatus));
+            }
+            else {
+              // Highly unexpected error
+              syslog(LOG_ERR, "Child (cryptosd) returned with errorcode %d", WEXITSTATUS(returnStatus));
+              // TODO: check if encryption done or not
+            }
           }
-          free(newFilePath);
         }
       }
-      if (closedir(imageDir) == -1){
-        syslog(LOG_ERR, "Error during closing the directory %s", imagePath);
-        // TODO: try until you can close it or exit
-      }
+      free(newFilePath);
     }
-    syslog(LOG_NOTICE, "Sleep %d seconds", sleepTime);
-    sleep(sleepTime);
+  }
+  if (closedir(imageDir) == -1){
+    syslog(LOG_ERR, "Error during closing the directory %s", imagePath);
+        // TODO: try until you can close it or exit
+  }
+}
+syslog(LOG_NOTICE, "Sleep %d seconds", sleepTime);
+sleep(sleepTime);
     //sync
     //unmount
-    syslog(LOG_NOTICE, "begin umount");
-    if (umount("/mnt/sd/") == -1)
-    {
-      syslog(LOG_ERR, "Unmount failed with errorcode %d", errno);
-    }
-    syslog(LOG_NOTICE, "end umount");
+syslog(LOG_NOTICE, "begin umount");
+if (umount("/mnt/sd/") == -1)
+{
+  syslog(LOG_ERR, "Unmount failed with errorcode %d", errno);
+}
+syslog(LOG_NOTICE, "end umount");
     //remount
-    if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "") == -1)
-    {
-      syslog(LOG_ERR, "Remount failed with errorcode %d", errno);
-    }  
-    syslog(LOG_NOTICE, "end remount");
-  }
+if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "") == -1)
+{
+  syslog(LOG_ERR, "Remount failed with errorcode %d", errno);
+}  
+syslog(LOG_NOTICE, "end remount");
+}
 
-  syslog (LOG_NOTICE, "Cryptodaemon terminated.");
-  closelog();
+syslog (LOG_NOTICE, "Cryptodaemon terminated.");
+closelog();
 
-  return EXIT_SUCCESS;
+return EXIT_SUCCESS;
 }
