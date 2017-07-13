@@ -21,6 +21,65 @@
 #include <sys/wait.h>
 #include <sys/mount.h>
 
+size_t getDCIMDirectories(const char * path, char * * * ls) {
+  size_t numberOfDirectories = 0;
+  size_t length = 0;
+  DIR * dp = NULL;
+  struct dirent * ep = NULL;
+
+  dp = opendir(path);
+  if (NULL == dp) {
+    fprintf(stderr, "no such directory: '%s'", path);
+    return 0;
+  }
+
+  * ls = NULL;
+  ep = readdir(dp);
+  while (NULL != ep) {
+    if (strcmp(strdup(ep -> d_name), ".") != 0) {
+      if (strcmp(strdup(ep -> d_name), "..") != 0) {
+        numberOfDirectories++;
+        syslog(LOG_NOTICE, "numberOfDirectories for %s ", strdup(ep -> d_name));
+      }
+    }
+    ep = readdir(dp);
+  }
+
+  rewinddir(dp); * ls = calloc(numberOfDirectories, sizeof(char * ));
+
+  numberOfDirectories = 0;
+  ep = readdir(dp);
+  while (NULL != ep) {
+    if (strcmp(strdup(ep -> d_name), ".") != 0) {
+      if (strcmp(strdup(ep -> d_name), "..") != 0) {
+        ( * ls)[numberOfDirectories++] = strdup(ep -> d_name);
+        syslog(LOG_NOTICE, "Directory %s exists.", strdup(ep -> d_name));
+      }
+    }
+    ep = readdir(dp);
+  }
+
+  closedir(dp);
+  return numberOfDirectories;
+}
+
+void checkDirectory(const char * imagePath) {
+  DIR * imageDir;
+  syslog(LOG_NOTICE, "Check if %s exists.", imagePath);
+  imageDir = opendir(imagePath);
+  if (imageDir) {
+    syslog(LOG_NOTICE, "%s found. Continue execting.", imagePath);
+    closedir(imageDir);
+  } else if (ENOENT == errno) {
+    syslog(LOG_NOTICE, "%s not found. Create it and continue execting.", imagePath);
+    mkdir(imagePath, 0777);
+    // TODO: wait until found
+  } else {
+    syslog(LOG_ERR, "Error (%d) occured during checking %s. Exiting", errno, imagePath);
+    exit(1);
+  }
+}
+
 /*
  * Puts the program into daemon mode
  */
@@ -87,137 +146,137 @@ static void skeleton_daemon(void){
  */
 int main(void){
 
-  char *imagePath = "/mnt/sd/DCIM/100PHOTO/";
-  struct dirent *imageDirContent;
-  int sleepTime = 5;
-  DIR *imageDir;
-
   skeleton_daemon();
-  // TODO: do we really need this block?
-  syslog (LOG_NOTICE, "Check if %s exists.", imagePath);
-  imageDir = opendir(imagePath);
-  if (imageDir){
-    syslog(LOG_NOTICE, "%s found. Continue execting.", imagePath);
-    closedir(imageDir);
-  }
-  else if (ENOENT == errno){
-    syslog(LOG_NOTICE, "%s not found. Create it and continue execting.", imagePath);
-    mkdir(imagePath, 0777);
-    // TODO: wait until found
-  }
-  else {
-    syslog(LOG_ERR, "Error (%d) occured during checking %s. Exiting", errno, imagePath);
-    exit(1);
-  }
 
   while(1){
 
-    imageDir = opendir(imagePath);
-    // read the filelisting
-    if (imageDir){
-      while ((imageDirContent = readdir(imageDir)) != NULL) {
-        if (imageDirContent->d_type == DT_REG) {
-          syslog(LOG_NOTICE, "Beginning to handle %s", imageDirContent->d_name);
-          int pathLength = strlen(imageDirContent->d_name) + strlen(imagePath) + 1;
-          char *newFilePath = (char *)malloc(pathLength);
+    char * * DCIMDirectories;
+    size_t numberOfDirectories;
+    int i;
 
-          if(newFilePath == NULL){
-            syslog(LOG_ERR, "Error during initializing newFilePath buffer. Continue without encrypting");
-          }
+    numberOfDirectories = getDCIMDirectories("/mnt/sd/DCIM/", &DCIMDirectories);
+    for (i = 0; i <numberOfDirectories; i++) {
+      syslog(LOG_NOTICE, "FOR LOOP WITH DIRECTORY %s\n", DCIMDirectories[i]);
+      // BEGIN FOR
+      char imagePath [100];
+      imagePath[0] = 0;
+      strcat(imagePath, "/mnt/sd/DCIM/");
+      strcat(imagePath, DCIMDirectories[i]);
+      strcat(imagePath, "/");
+      syslog(LOG_NOTICE, "Handling Directory %s...", imagePath);
+      checkDirectory(imagePath);
+      DIR *imageDir;
+      imageDir = opendir(imagePath);
+      struct dirent *imageDirContent;
 
-          else {
-            memset(newFilePath, '\0', pathLength);
-            strncpy(newFilePath, imagePath, strlen(imagePath));
-            strncat(newFilePath, imageDirContent->d_name, strlen(imageDirContent->d_name));
+      // read the filelisting
+      if (imageDir) {
+        while ((imageDirContent = readdir(imageDir)) != NULL) {
+          if (imageDirContent->d_type == DT_REG) {
+            int pathLength = strlen(imageDirContent->d_name) + strlen(imagePath) + 1;
+            char *newFilePath = (char *)malloc(pathLength);
 
-            if (strstr(imageDirContent->d_name, ".out") == NULL){
-              // new picture found
-              pid_t childPid = fork();
-
-              if (childPid == -1){
-                // TODO: store the event name and try to encrypt later.
-                syslog(LOG_ERR, "Error %d occured during start of cryptosd. Continuing without encrypting %s", errno, imageDirContent->d_name);
-              }
-              else if(childPid == 0){
-                // Child process
-                // TODO: change path of key
-                syslog(LOG_NOTICE, "Starting cryptosd for %s.", imageDirContent->d_name);
-                char *argList[] = {"cryptosd",
-                "-e",
-                "-k",
-                "/tmp/key",
-                "-i",
-                newFilePath,
-                NULL
-              };
-
-              execvp("/tmp/cryptosd", argList);
-
-              // only occures if an error happened
-              syslog(LOG_ERR, "Error (%d) during execvp of cryptosd for %s.", errno, newFilePath);
-              abort();
+            if(newFilePath == NULL){
+              syslog(LOG_ERR, "Error during initializing newFilePath buffer. Continue without encrypting");
             }
-            else {
-              syslog(LOG_NOTICE, "Child (cryptosd) pid: %d", childPid);
-              int returnStatus;
-              waitpid(childPid, &returnStatus, 0);
-              syslog(LOG_NOTICE, "Return Status %d", WEXITSTATUS(returnStatus));
-              if (WIFEXITED(returnStatus)){
-                syslog(LOG_NOTICE, "Encryption done for %s. Beginning with the deletion.", newFilePath);
-                // outfile found, delete the original one
 
+            else {
+              memset(newFilePath, '\0', pathLength);
+              strncpy(newFilePath, imagePath, strlen(imagePath));
+              strncat(newFilePath, imageDirContent->d_name, strlen(imageDirContent->d_name));
+
+              if (strstr(imageDirContent->d_name, ".out") == NULL){
+                syslog(LOG_NOTICE, "Beginning to handle %s", imageDirContent->d_name);
+                // new picture found
                 pid_t childPid = fork();
 
                 if (childPid == -1){
-                  syslog(LOG_ERR, "Error (%d) during start of rm. Continue without deleting %s", errno, imageDirContent->d_name);
+                // TODO: store the event name and try to encrypt later.
+                  syslog(LOG_ERR, "Error %d occured during start of cryptosd. Continuing without encrypting %s", errno, imageDirContent->d_name);
                 }
                 else if(childPid == 0){
-                  // Child process
-                  syslog(LOG_NOTICE, "Starting deletion of %s", imageDirContent->d_name);
-                  char *argList[] = {"rm",
+                // Child process
+                // TODO: change path of key
+                  syslog(LOG_NOTICE, "Starting cryptosd for %s.", imageDirContent->d_name);
+                  char *argList[] = {"cryptosd",
+                  "-e",
+                  "-k",
+                  "/tmp/key",
+                  "-i",
                   newFilePath,
                   NULL
                 };
-                execvp("rm", argList);
-                syslog(LOG_ERR, "Error during execvp of rm for %s", imageDirContent->d_name);
+
+                execvp("/tmp/cryptosd", argList);
+
+              // only occures if an error happened
+                syslog(LOG_ERR, "Error (%d) during execvp of cryptosd for %s.", errno, newFilePath);
                 abort();
               }
               else {
-                syslog(LOG_NOTICE, "Child (rm) pid: %d", childPid);
-                returnStatus = 9;
+                syslog(LOG_NOTICE, "Child (cryptosd) pid: %d", childPid);
+                int returnStatus;
                 waitpid(childPid, &returnStatus, 0);
-                if (returnStatus != 0){
-                  syslog(LOG_ERR, "Child (rm) returned with errorcode %d", returnStatus);
+                syslog(LOG_NOTICE, "Return Status %d", WEXITSTATUS(returnStatus));
+                if (WIFEXITED(returnStatus)){
+                  syslog(LOG_NOTICE, "Encryption done for %s. Beginning with the deletion.", newFilePath);
+                // outfile found, delete the original one
+
+                  pid_t childPid = fork();
+
+                  if (childPid == -1){
+                    syslog(LOG_ERR, "Error (%d) during start of rm. Continue without deleting %s", errno, imageDirContent->d_name);
+                  }
+                  else if(childPid == 0){
+                  // Child process
+                    syslog(LOG_NOTICE, "Starting deletion of %s", imageDirContent->d_name);
+                    char *argList[] = {"rm",
+                    newFilePath,
+                    NULL
+                  };
+                  execvp("rm", argList);
+                  syslog(LOG_ERR, "Error during execvp of rm for %s", imageDirContent->d_name);
+                  abort();
                 }
                 else {
-                  syslog(LOG_NOTICE, "Deletion done for %s", imageDirContent->d_name);
+                  syslog(LOG_NOTICE, "Child (rm) pid: %d", childPid);
+                  returnStatus = 9;
+                  waitpid(childPid, &returnStatus, 0);
+                  if (returnStatus != 0){
+                    syslog(LOG_ERR, "Child (rm) returned with errorcode %d", returnStatus);
+                  }
+                  else {
+                    syslog(LOG_NOTICE, "Deletion done for %s", imageDirContent->d_name);
+                  }
                 }
               }
-            }
-            else if ( WIFSIGNALED(returnStatus) ) {
-              int signum = WTERMSIG(returnStatus);
-              syslog(LOG_ERR, "Exited due to receiving signal %d\n", WEXITSTATUS(returnStatus));
-            }
-            else if ( WIFSTOPPED(returnStatus) ) {
-              int signum = WSTOPSIG(returnStatus);
-              syslog(LOG_ERR, "Stopped due to receiving signal %d\n", WEXITSTATUS(returnStatus));
-            }
-            else {
+              else if ( WIFSIGNALED(returnStatus) ) {
+                int signum = WTERMSIG(returnStatus);
+                syslog(LOG_ERR, "Exited due to receiving signal %d\n", WEXITSTATUS(returnStatus));
+              }
+              else if ( WIFSTOPPED(returnStatus) ) {
+                int signum = WSTOPSIG(returnStatus);
+                syslog(LOG_ERR, "Stopped due to receiving signal %d\n", WEXITSTATUS(returnStatus));
+              }
+              else {
               // Highly unexpected error
-              syslog(LOG_ERR, "Child (cryptosd) returned with errorcode %d", WEXITSTATUS(returnStatus));
+                syslog(LOG_ERR, "Child (cryptosd) returned with errorcode %d", WEXITSTATUS(returnStatus));
               // TODO: check if encryption done or not
+              }
             }
           }
         }
+        free(newFilePath);
       }
-      free(newFilePath);
+    }
+    if (closedir(imageDir) == -1){
+      syslog(LOG_ERR, "Error during closing the directory %s", imagePath);
+        // TODO: try until you can close it or exit
     }
   }
-  if (closedir(imageDir) == -1){
-    syslog(LOG_ERR, "Error during closing the directory %s", imagePath);
-        // TODO: try until you can close it or exit
-  }
 }
+    // END FOR
+int sleepTime = 5;
 syslog(LOG_NOTICE, "Sleep %d seconds", sleepTime);
 sleep(sleepTime);
     //sync
