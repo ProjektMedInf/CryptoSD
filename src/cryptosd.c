@@ -23,14 +23,6 @@
 void printUsage(char *progName);
 
 /**
- * Prints an error message to sdterr and exists with the given exitcode
- * if it is not 0.
- * @param msg the error message
- * @param doExit the exitcode to be used
- **/
-void printError(char *msg, int doExit);
-
-/**
  * Checks if the file has a valid length
  * @param keyFile pointer to the FILE object
  * @param keyType what kind of keyfile it is. (used only for logging)
@@ -179,7 +171,8 @@ int main (int argc, char **argv){
     randombytes_buf(key, sizeof(key));
 
     if(crypto_box_easy(encryptedKey, key, sizeof(key), nonce, publickey, secretkey) != 0){
-      printError("Error during encrypting the encryption key\n", 2);
+      syslog(LOG_ERR, "Error during encrypting the encryption key\n");
+      exit(2);
     }
 
     crypto_stream_chacha20_xor(ifdBuffer, ifdBuffer, ifSize, nonce, key);
@@ -244,7 +237,8 @@ int main (int argc, char **argv){
     }
 
     if(crypto_box_open_easy(key, encryptedKey, sizeof(encryptedKey), nonce, publickey, secretkey) != 0){
-      printError("Error during decrypting the encryption key\n", 2);
+      syslog(LOG_ERR, "Error during decrypting the encryption key\n");
+      exit(2);
     }
 
     crypto_stream_chacha20_xor(ifdBuffer, ifdBuffer, ifSize - sizeof(encryptedKey) - sizeof(nonce), nonce, key);
@@ -281,7 +275,7 @@ int checkKeyFile(FILE *keyFile, char *keyType, int validLength){
   int fSize = ftell(keyFile);
   if(fSize != validLength){
     fprintf(stderr, "Checking %s failed.", keyType);
-    printError("This seems to be an invalid keyfile.\n", 1);
+    syslog(LOG_ERR, "This seems to be an invalid keyfile.\n");
   }
   rewind(keyFile);
   return fSize;
