@@ -165,8 +165,10 @@ int main(void){
               syslog(LOG_NOTICE, "Starting cryptosd for %s.", event->name);
               char *argList[] = {"cryptosd",
                 "-e",
-                "-k",
-                "/tmp/key",
+                "-s",
+                "/tmp/cam_seckey",
+                "-p",
+                "/tmp/user_pubkey",
                 "-i",
                 newFilePath,
                 NULL
