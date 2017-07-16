@@ -14,6 +14,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <sys/time.h>
+#include <syslog.h>
 
 /**
  * Pritns the usage and exits with 255.
@@ -92,32 +93,34 @@ int main (int argc, char **argv){
 
   // check if every needed parameter has been provided
   if ((dflag && eflag) || !(dflag || eflag)){
-    printError("Either -e or -d must be set but not both\n", 0);
+    syslog(LOG_ERR, "Either -e or -d must be set but not both \n");
     printUsage(progName);
+    exit(255);
   }
 
   if (ipath == NULL){
-    printError("-i is mandatory\n", 0);
+    syslog(LOG_ERR, "-i is mandatory\n");
     printUsage(progName);
+    exit(255);
   }
 
 
   if (spath == NULL){
-    printError("-s is mandatory\n", 0);
-    printUsage(progName);
+    syslog(LOG_ERR, "-s is mandatory\n");
+    exit(255);
   }
 
   if (ppath == NULL){
-    printError("-p is mandatory\n", 0);
-    printUsage(progName);
+    syslog(LOG_ERR, "-p is mandatory\n");
+    exit(255);
   }
 
   // read in key and input file
   FILE *sfd = fopen(spath, "r");
 
   if (sfd == NULL){
-    printError("Error during opening secertkeyfile\n", 1);
-  }
+    syslog(LOG_ERR, "Error during opening secretkeyfile\n");
+    exit(1);  }
 
   // check if secretkeyfile is valid regarding its size
   int sfSize = checkKeyFile(sfd, "secretkeyfile", crypto_box_SECRETKEYBYTES);
@@ -125,7 +128,8 @@ int main (int argc, char **argv){
   FILE *pfd = fopen(ppath, "r");
 
   if (pfd == NULL){
-    printError("Error during opening publickeyfile\n", 1);
+    syslog(LOG_ERR, "Error during opening publickeyfile\n");
+    exit(1);
   }
 
   // check if publickeyfile is valid regarding its size
@@ -134,7 +138,8 @@ int main (int argc, char **argv){
   FILE *ifd = fopen(ipath, "r");
 
   if (ifd == NULL){
-    printError("Error during opening inputfile\n", 1);
+    syslog(LOG_ERR, "Error during opening inputfile.\n");
+    exit(1);
   }
 
   fseek(ifd, 0, SEEK_END);
@@ -143,17 +148,20 @@ int main (int argc, char **argv){
 
   unsigned char *publickey = (char *)malloc(pfSize);
   if(publickey == NULL){
-    printError("Error during initializing secretkey buffer\n", 1);
+    syslog(LOG_ERR, "Error during initializing secretkey buffer\n");
+    exit(1);
   }
 
   unsigned char *secretkey = (char *)malloc(sfSize);
   if(secretkey == NULL){
-    printError("Error during initializing publickey buffer\n", 1);
+    syslog(LOG_ERR, "Error during initializing publickey buffer\n");
+    exit(1);
   }
 
   unsigned char *ifdBuffer = (char *)malloc(ifSize);
   if(ifdBuffer == NULL){
-    printError("Error during initializing input buffer\n", 1);
+    syslog(LOG_ERR, "Error during initializing input buffer.\n");
+    exit(1);
   }
 
   fread(publickey, pfSize, 1, pfd);
@@ -179,16 +187,19 @@ int main (int argc, char **argv){
     FILE *ofd = fopen(opath, "w");
 
     if (ofd == NULL){
-      printError("Error during opening keyfile\n", 2);
+      syslog(LOG_ERR, "Error during opening outputfile.\n");
+      exit(2);
     }
 
     // write the encrypted stream to the outputfile
     if(fwrite(ifdBuffer, sizeof(char), ifSize, ofd) != ifSize){
-      printError("An error occured during writing the encrypted file\n", 2);
+      syslog(LOG_ERR, "An error occured during writing the encrypted file.\n");
+      exit(2);
     }
 
     if(fsync(fileno(ofd)) == -1){
-      printError("An error occured during flushing the encrypted file\n", 0);
+      syslog(LOG_ERR, "An error occured during flushing the encrypted file.\n");
+      exit(2);
     }
 
     fclose(ofd);
@@ -196,21 +207,25 @@ int main (int argc, char **argv){
     ofd = fopen(opath, "a");
 
     if (ofd == NULL){
-      printError("Error during opening keyfile\n", 1);
+      syslog(LOG_ERR, "Error during opening outputfile.\n");
+      exit(2);
     }
 
     // write the used key in encrypted form to the end of the outputfile
     if(fwrite(encryptedKey, sizeof(char), sizeof(encryptedKey), ofd) != sizeof(encryptedKey)){
-      printError("An error occured during writing the used key to the encrypted file\n", 2);
+      syslog(LOG_ERR, "An error occured during writing the used key to the encrypted file\n");
+      exit(2);
     }
 
     // write the used nonce to the end of the outputfile
     if(fwrite(nonce, sizeof(char), sizeof(nonce), ofd) != sizeof(nonce)){
-      printError("An error occured during writing the used nonce to the encrypted file\n", 2);
+      syslog(LOG_ERR, "An error occured during writing the used nonce to the encrypted file\n");
+      exit(2);
     }
 
     if(fsync(fileno(ofd)) == -1){
-      printError("An error occured during flushing the encrypted file with the nonce\n", 0);
+      syslog(LOG_ERR, "An error occured during flushing the encrypted file with the nonce\n");
+      exit(2);
     }
 
     fclose(ofd);
@@ -236,12 +251,14 @@ int main (int argc, char **argv){
     FILE *ofd = fopen(opath, "w");
 
     if (ofd == NULL){
-      printError("Error during opening outputfile\n", 2);
+      syslog(LOG_ERR, "Error during opening outputfile.\n");
+      exit(2);
     }
 
     // write out the decrypted stream to the outputfile
     if(fwrite(ifdBuffer, sizeof(char), ifSize - sizeof(encryptedKey) - sizeof(nonce), ofd) != ifSize - sizeof(encryptedKey) - sizeof(nonce)){
-      printError("An error occured during writing the decrypted file\n", 2);
+      syslog(LOG_ERR, "An error occured during writing the decrypted file.\n");
+      exit(2);
     }
 
     fclose(ofd);
@@ -257,13 +274,6 @@ int main (int argc, char **argv){
 void printUsage(char *progName){
   fprintf(stderr, "Usage: %s -s <secretkeyfile> -p <publickeyfile> -i <inputfile> -d|-e\n", progName);
   exit(255);
-}
-
-void printError(char *msg, int doExit){
-  fprintf(stderr, msg);
-  if(doExit){
-    exit(doExit);
-  }
 }
 
 int checkKeyFile(FILE *keyFile, char *keyType, int validLength){
