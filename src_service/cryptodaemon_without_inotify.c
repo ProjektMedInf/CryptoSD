@@ -39,7 +39,6 @@ size_t getDCIMDirectories(const char * path, char * * * ls) {
     if (strcmp(strdup(ep -> d_name), ".") != 0) {
       if (strcmp(strdup(ep -> d_name), "..") != 0) {
         numberOfDirectories++;
-        syslog(LOG_NOTICE, "numberOfDirectories for %s ", strdup(ep -> d_name));
       }
     }
     ep = readdir(dp);
@@ -156,14 +155,12 @@ int main(void){
 
     numberOfDirectories = getDCIMDirectories("/mnt/sd/DCIM/", &DCIMDirectories);
     for (i = 0; i <numberOfDirectories; i++) {
-      syslog(LOG_NOTICE, "FOR LOOP WITH DIRECTORY %s\n", DCIMDirectories[i]);
-      // BEGIN FOR
+
       char imagePath [100];
       imagePath[0] = 0;
       strcat(imagePath, "/mnt/sd/DCIM/");
       strcat(imagePath, DCIMDirectories[i]);
       strcat(imagePath, "/");
-      syslog(LOG_NOTICE, "Handling Directory %s...", imagePath);
       checkDirectory(imagePath);
       DIR *imageDir;
       imageDir = opendir(imagePath);
@@ -222,7 +219,7 @@ int main(void){
                 syslog(LOG_NOTICE, "Return Status %d", WEXITSTATUS(returnStatus));
                 if (WIFEXITED(returnStatus)){
                   syslog(LOG_NOTICE, "Encryption done for %s. Beginning with the deletion.", newFilePath);
-                // outfile found, delete the original one
+                  // outfile found, delete the original one
 
                   pid_t childPid = fork();
 
@@ -277,7 +274,7 @@ int main(void){
     }
   }
 }
-    // END FOR
+
 int sleepTime = 5;
 syslog(LOG_NOTICE, "Sleep %d seconds", sleepTime);
 sleep(sleepTime);
@@ -289,7 +286,7 @@ if (umount("/mnt/sd/") == -1)
   syslog(LOG_ERR, "Unmount failed with errorcode %d", errno);
 }
 syslog(LOG_NOTICE, "end umount");
-    //remount
+
 if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "") == -1)
 {
   syslog(LOG_ERR, "Remount failed with errorcode %d", errno);
