@@ -204,7 +204,7 @@ int main(void){
                   NULL
                 };
 
-                execvp("/bin/cryptosd", argList);
+                execvp("/etc/cryptosd", argList);
 
               // only occures if an error happened
                 syslog(LOG_ERR, "Error (%d) during execvp of cryptosd for %s.", errno, newFilePath);
