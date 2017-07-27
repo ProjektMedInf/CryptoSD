@@ -146,32 +146,35 @@ int main (int argc, char **argv){
     // fill nonce and key with random data
     randombytes_buf(nonce, sizeof(nonce));
     randombytes_buf(key, sizeof(key));
-
+    syslog(LOG_NOTICE, "start crypto_box_seal");
     if(crypto_box_seal(encryptedKey, key, sizeof(key), publickey) != 0){
       syslog(LOG_ERR, "Error during encrypting the encryption key\n");
       exit(2);
     }
-
+    syslog(LOG_NOTICE, "end crypto_box_seal");
+    syslog(LOG_NOTICE, "start crypto_stream_chacha20_xor");
     crypto_stream_chacha20_xor(ifdBuffer, ifdBuffer, ifSize, nonce, key);
-
+    syslog(LOG_NOTICE, "end crypto_stream_chacha20_xor");
     FILE *ofd = fopen(opath, "w");
 
     if (ofd == NULL){
       syslog(LOG_ERR, "Error during opening outputfile. (Write)\n");
       exit(2);
     }
-
+    
+    syslog(LOG_NOTICE, "start writing the encrypted file");
     // write the encrypted stream to the outputfile
     if(fwrite(ifdBuffer, sizeof(char), ifSize, ofd) != ifSize){
       syslog(LOG_ERR, "An error occured during writing the encrypted file.\n");
       exit(2);
     }
-
+    syslog(LOG_NOTICE, "end writing the encrypted file");
+    syslog(LOG_NOTICE, "start flushing the encrypted file");
     if(fsync(fileno(ofd)) == -1){
       syslog(LOG_ERR, "An error occured during flushing the encrypted file.\n");
       exit(2);
     }
-
+    syslog(LOG_NOTICE, "end flushing the encrypted file");
     fclose(ofd);
 
     ofd = fopen(opath, "a");
@@ -181,22 +184,28 @@ int main (int argc, char **argv){
       exit(2);
     }
 
+    syslog(LOG_NOTICE, "start writing the used key to the enccrypted file");
     // write the used key in encrypted form to the end of the outputfile
     if(fwrite(encryptedKey, sizeof(char), sizeof(encryptedKey), ofd) != sizeof(encryptedKey)){
       syslog(LOG_ERR, "An error occured during writing the used key to the encrypted file\n");
       exit(2);
     }
+    syslog(LOG_NOTICE, "end writing the used key to the enccrypted file");
 
+    syslog(LOG_NOTICE, "start writing the used nonce to the enccrypted file");
     // write the used nonce to the end of the outputfile
     if(fwrite(nonce, sizeof(char), sizeof(nonce), ofd) != sizeof(nonce)){
       syslog(LOG_ERR, "An error occured during writing the used nonce to the encrypted file\n");
       exit(2);
     }
+    syslog(LOG_NOTICE, "end writing the used nonce to the enccrypted file");
 
+    syslog(LOG_NOTICE, "start flushing the encrypted file with the nonce");
     if(fsync(fileno(ofd)) == -1){
       syslog(LOG_ERR, "An error occured during flushing the encrypted file with the nonce\n");
       exit(2);
     }
+    syslog(LOG_NOTICE, "end flushing the encrypted file with the nonce");
 
     fclose(ofd);
   } else{
