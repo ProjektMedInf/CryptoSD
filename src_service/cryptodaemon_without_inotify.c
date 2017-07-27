@@ -126,7 +126,7 @@ static void skeleton_daemon(void){
 
   // Change the working directory to the root directory
   // or another appropriated directory
-  chdir("/tmp");
+  chdir("/");
 
   // Close all open file descriptors
   int x;
@@ -197,16 +197,14 @@ int main(void){
                   syslog(LOG_NOTICE, "Starting cryptosd for %s.", imageDirContent->d_name);
                   char *argList[] = {"cryptosd",
                   "-e",
-                  "-s",
-                  "/tmp/cam_seckey",
                   "-p",
-                  "/tmp/user_pubkey",
+                  "/mnt/sd/key",
                   "-i",
                   newFilePath,
                   NULL
                 };
 
-                execvp("/tmp/cryptosd", argList);
+                execvp("/bin/cryptosd", argList);
 
               // only occures if an error happened
                 syslog(LOG_ERR, "Error (%d) during execvp of cryptosd for %s.", errno, newFilePath);
