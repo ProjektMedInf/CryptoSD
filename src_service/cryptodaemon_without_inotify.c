@@ -275,7 +275,7 @@ int main(void){
   }
 }
 
-int sleepTime = 5;
+int sleepTime = 1;
 syslog(LOG_NOTICE, "Sleep %d seconds", sleepTime);
 sleep(sleepTime);
 syslog(LOG_NOTICE, "before sync");
@@ -288,6 +288,7 @@ if (umount("/mnt/sd/") == -1)
 {
   syslog(LOG_ERR, "Unmount failed with errorcode %d", errno);
 }
+
 syslog(LOG_NOTICE, "end umount");
 
 if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "errors=continue") == -1)
