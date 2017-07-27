@@ -290,7 +290,7 @@ if (umount("/mnt/sd/") == -1)
 }
 syslog(LOG_NOTICE, "end umount");
 
-if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "") == -1)
+if(mount("/dev/mmcblk0p1", "/mnt/sd", "vfat", MS_RELATIME, "errors=continue") == -1)
 {
   syslog(LOG_ERR, "Remount failed with errorcode %d", errno);
 }  
