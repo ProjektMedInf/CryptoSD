@@ -105,8 +105,8 @@ static void skeleton_daemon(void){
 
   // Catch, ignore and handle signals
   // TODO: Implement a working signal handler
-  signal(SIGCHLD, SIG_IGN);
-  signal(SIGHUP, SIG_IGN);
+  //signal(SIGCHLD, SIG_IGN);
+  //signal(SIGHUP, SIG_IGN);
 
   // Fork off for the second time
   pid = fork();
@@ -278,6 +278,9 @@ int main(void){
 int sleepTime = 5;
 syslog(LOG_NOTICE, "Sleep %d seconds", sleepTime);
 sleep(sleepTime);
+syslog(LOG_NOTICE, "before sync");
+sync();
+syslog(LOG_NOTICE, "after sync");
     //sync
     //unmount
 syslog(LOG_NOTICE, "begin umount");

@@ -157,7 +157,7 @@ int main (int argc, char **argv){
     FILE *ofd = fopen(opath, "w");
 
     if (ofd == NULL){
-      syslog(LOG_ERR, "Error during opening outputfile.\n");
+      syslog(LOG_ERR, "Error during opening outputfile. (Write)\n");
       exit(2);
     }
 
@@ -177,7 +177,7 @@ int main (int argc, char **argv){
     ofd = fopen(opath, "a");
 
     if (ofd == NULL){
-      syslog(LOG_ERR, "Error during opening outputfile.\n");
+      syslog(LOG_ERR, "Error during opening outputfile. (Append)\n");
       exit(2);
     }
 
