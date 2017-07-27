@@ -38,10 +38,9 @@ int checkKeyFile(FILE *keyFile, char *keyType, int validLength);
  * @return 0 on success otherwise a number bigger than 0
  **/
 int main (int argc, char **argv){
-
-  unsigned char nonce[crypto_box_NONCEBYTES] = {};
+  unsigned char nonce[crypto_stream_chacha20_NONCEBYTES] = {};
   unsigned char key[crypto_stream_chacha20_KEYBYTES] = {};
-  unsigned char encryptedKey[sizeof(key) + crypto_box_MACBYTES];
+  unsigned char encryptedKey[sizeof(key) + crypto_box_SEALBYTES];
   char *progName = argv[0];
   int opt, j;
   int i=0;
@@ -97,26 +96,12 @@ int main (int argc, char **argv){
   }
 
 
-  if (spath == NULL){
-    syslog(LOG_ERR, "-s is mandatory\n");
-    exit(255);
-  }
-
   if (ppath == NULL){
     syslog(LOG_ERR, "-p is mandatory\n");
     exit(255);
   }
 
   // read in key and input file
-  FILE *sfd = fopen(spath, "r");
-
-  if (sfd == NULL){
-    syslog(LOG_ERR, "Error during opening secretkeyfile\n");
-    exit(1);  }
-
-  // check if secretkeyfile is valid regarding its size
-  int sfSize = checkKeyFile(sfd, "secretkeyfile", crypto_box_SECRETKEYBYTES);
-
   FILE *pfd = fopen(ppath, "r");
 
   if (pfd == NULL){
@@ -144,12 +129,6 @@ int main (int argc, char **argv){
     exit(1);
   }
 
-  unsigned char *secretkey = (char *)malloc(sfSize);
-  if(secretkey == NULL){
-    syslog(LOG_ERR, "Error during initializing publickey buffer\n");
-    exit(1);
-  }
-
   unsigned char *ifdBuffer = (char *)malloc(ifSize);
   if(ifdBuffer == NULL){
     syslog(LOG_ERR, "Error during initializing input buffer.\n");
@@ -157,10 +136,8 @@ int main (int argc, char **argv){
   }
 
   fread(publickey, pfSize, 1, pfd);
-  fread(secretkey, sfSize, 1, sfd);
   fread(ifdBuffer, ifSize, 1, ifd);
 
-  fclose(sfd);
   fclose(pfd);
   fclose(ifd);
 
@@ -170,7 +147,7 @@ int main (int argc, char **argv){
     randombytes_buf(nonce, sizeof(nonce));
     randombytes_buf(key, sizeof(key));
 
-    if(crypto_box_easy(encryptedKey, key, sizeof(key), nonce, publickey, secretkey) != 0){
+    if(crypto_box_seal(encryptedKey, key, sizeof(key), publickey) != 0){
       syslog(LOG_ERR, "Error during encrypting the encryption key\n");
       exit(2);
     }
@@ -223,6 +200,32 @@ int main (int argc, char **argv){
 
     fclose(ofd);
   } else{
+
+    if (spath == NULL){
+      syslog(LOG_ERR, "-s is mandatory in case of decryption mode\n");
+      exit(255);
+    }
+
+    FILE *sfd = fopen(spath, "r");
+
+    if (sfd == NULL){
+      syslog(LOG_ERR, "Error during opening secretkeyfile\n");
+      exit(1);
+    }
+
+    // check if secretkeyfile is valid regarding its size
+    int sfSize = checkKeyFile(sfd, "secretkeyfile", crypto_box_SECRETKEYBYTES);
+
+    unsigned char *secretkey = (char *)malloc(sfSize);
+    if(secretkey == NULL){
+      syslog(LOG_ERR, "Error during initializing publickey buffer\n");
+      exit(1);
+    }
+
+    fread(secretkey, sfSize, 1, sfd);
+
+    fclose(sfd);
+
     // do decryption
     // reading nonce
     j = 0;
@@ -236,7 +239,7 @@ int main (int argc, char **argv){
       encryptedKey[j++] = ifdBuffer[i];
     }
 
-    if(crypto_box_open_easy(key, encryptedKey, sizeof(encryptedKey), nonce, publickey, secretkey) != 0){
+    if(crypto_box_seal_open(key, encryptedKey, sizeof(encryptedKey), publickey, secretkey) != 0){
       syslog(LOG_ERR, "Error during decrypting the encryption key\n");
       exit(2);
     }
@@ -256,9 +259,10 @@ int main (int argc, char **argv){
     }
 
     fclose(ofd);
+
+    free(secretkey);
   }
   free(opath);
-  free(secretkey);
   free(publickey);
   free(ifdBuffer);
 
