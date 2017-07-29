@@ -4,7 +4,6 @@
  * @date 21.06.2017
  *
  * @brief main module of the CryptoSd project
- * TODO: Generate random key for every file, and encrypt it with a public key --> dump the encrypted key to the end of the file
  * 
  **/
 #include <stdio.h>     

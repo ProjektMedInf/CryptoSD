@@ -5,7 +5,6 @@
  *
  * @brief This is the daemon which is started through init, and handles the encryption of new files.
  * https://stackoverflow.com/questions/17954432/creating-a-daemon-in-linux
- * TODO: proper logging
  * TODO: proper signal handler
  */
 
@@ -188,12 +187,10 @@ int main(void){
                 pid_t childPid = fork();
 
                 if (childPid == -1){
-                // TODO: store the event name and try to encrypt later.
                   syslog(LOG_ERR, "Error %d occured during start of cryptosd. Continuing without encrypting %s", errno, imageDirContent->d_name);
                 }
                 else if(childPid == 0){
                 // Child process
-                // TODO: change path of key
                   syslog(LOG_NOTICE, "Starting cryptosd for %s.", imageDirContent->d_name);
                   char *argList[] = {"cryptosd",
                   "-e",
