@@ -1,8 +1,21 @@
+/**
+ * @file keygen.c
+ * @author stiefel40k
+ * @date 21.06.2017
+ *
+ * @brief Generates a private and public key for cryptosd
+ * 
+ */
+
 #include <sodium.h>
 #include <stdlib.h>
 #include <stdio.h>
 
-int main(int argc, char **argv){
+/**
+ * Main function of keygen.c. It generates the keys and writes them out
+ * @return 0 on success
+ */
+int main(void){
   unsigned char pk[crypto_box_PUBLICKEYBYTES];
   unsigned char sk[crypto_box_SECRETKEYBYTES];
 

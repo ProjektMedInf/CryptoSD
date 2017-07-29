@@ -1,13 +1,13 @@
-/*
- * @file cryptodaemon.c
+/**
+ * @file cryptodaemon_with_inotify.c
  * @author stiefel40k
  * @date 21.06.2017
  *
  * @brief This is the daemon which is started through init, and handles the encryption of new files.
- * https://stackoverflow.com/questions/17954432/creating-a-daemon-in-linux
- * TODO: proper logging
- * TODO: proper signal handler
  */
+ // https://stackoverflow.com/questions/17954432/creating-a-daemon-in-linux
+ // TODO: proper logging
+ // TODO: proper signal handler
 
 
 #include <stdio.h>
@@ -25,7 +25,7 @@
 #define EVENT_SIZE  (sizeof (struct inotify_event))
 #define EVENT_BUF_LEN (1024 * (EVENT_SIZE + 16))
 
-/*
+/**
  * Puts the program into daemon mode
  */
 static void skeleton_daemon(void){
@@ -85,7 +85,7 @@ static void skeleton_daemon(void){
   openlog ("cryptodaemon", LOG_PID, LOG_DAEMON);
 }
 
-/*
+/**
  * Main program of the daemon. Starts the deamonizing and starts cryptosd if a new file if found.
  * @returns 0 if no error happend and 1 if an error occured.
  */
