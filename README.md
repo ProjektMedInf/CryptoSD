@@ -59,3 +59,21 @@ The program then extracts the encrypted random key, decrypts it, and then it use
 
 As well as the file- and the public-key-encryption uses the libsodium
 implementation of the ChaCha20 stream cipher.
+
+## Daemon
+
+The deamon can be started without any parameters.
+It looks for the key at `/mnt/sd/key` and looks for the cryptosd executable at `/et/cryptosd`.
+
+There are two implementations of the daemon.
+One is using the `inotify` library call, however, this was the early version of the daemon, and is not complete at all.
+The other version is currently the functioning one, and it runs without using the `inotify` library call.
+
+It would have been nicer with `inotify`, however the Linux running on the SD-Card doesn't see the new pictures until the whole partition has not been remounted.
+And as we have to remount the whole partition it doesn't pay out to use `inotify`.
+
+As the Linux doesn't see the new images there is a second big issue.
+If you happen to make a picture during the encryption, both of the images are going to be overwritten, and somehow you lose both of them.
+Don't ask me why, I don't get it either...
+So one should wait 1 or 2 minutes (or more depending on the quality) between taking photos.
+Sorry about that. :)
